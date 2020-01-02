@@ -569,7 +569,7 @@ const uint8_t gRideCategories[] = {
     RIDE_CATEGORY_THRILL,        // Magic Carpet
     RIDE_CATEGORY_WATER,         // Submarine Ride
     RIDE_CATEGORY_WATER,         // River Rafts
-    255,                         // (none)
+    RIDE_CATEGORY_ROLLERCOASTER,                         // (none)
     RIDE_CATEGORY_THRILL,        // Enterprise
     255,                         // (none)
     255,                         // (none)
