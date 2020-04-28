@@ -154,6 +154,7 @@
 		93FC09002418F3ED00CA3054 /* duk_config.h in Headers */ = {isa = PBXBuildFile; fileRef = 93FC08FE2418F3ED00CA3054 /* duk_config.h */; };
 		93FC09022418F3F500CA3054 /* libduktape.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 93FC09012418F3F500CA3054 /* libduktape.dylib */; };
 		93FC09032418F41700CA3054 /* libduktape.dylib in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 93FC09012418F3F500CA3054 /* libduktape.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		C1E1293E245857DF00C5FC31 /* HybridCoaster.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C1E1293D245857DF00C5FC31 /* HybridCoaster.cpp */; };
 		C61ADB1F1FB6A0A70024F2EF /* TopToolbar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C61ADB1E1FB6A0A60024F2EF /* TopToolbar.cpp */; };
 		C61ADB211FB7DC060024F2EF /* Scenery.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C61ADB201FB7DC060024F2EF /* Scenery.cpp */; };
 		C61ADB231FBBCB8B0024F2EF /* GameBottomToolbar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C61ADB221FBBCB8A0024F2EF /* GameBottomToolbar.cpp */; };
@@ -1359,6 +1360,7 @@
 		93FC08FD2418F3ED00CA3054 /* duktape.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = duktape.h; sourceTree = "<group>"; };
 		93FC08FE2418F3ED00CA3054 /* duk_config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = duk_config.h; sourceTree = "<group>"; };
 		93FC09012418F3F500CA3054 /* libduktape.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libduktape.dylib; sourceTree = "<group>"; };
+		C1E1293D245857DF00C5FC31 /* HybridCoaster.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = HybridCoaster.cpp; sourceTree = "<group>"; };
 		C61ADB1E1FB6A0A60024F2EF /* TopToolbar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TopToolbar.cpp; sourceTree = "<group>"; };
 		C61ADB201FB7DC060024F2EF /* Scenery.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Scenery.cpp; sourceTree = "<group>"; };
 		C61ADB221FBBCB8A0024F2EF /* GameBottomToolbar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = GameBottomToolbar.cpp; sourceTree = "<group>"; };
@@ -3224,6 +3226,7 @@
 				4C93F11E1F8B744400A9330D /* FlyingRollerCoaster.cpp */,
 				4C93F11F1F8B744400A9330D /* GigaCoaster.cpp */,
 				4C93F1201F8B744400A9330D /* HeartlineTwisterCoaster.cpp */,
+				C1E1293D245857DF00C5FC31 /* HybridCoaster.cpp */,
 				4C93F1211F8B744400A9330D /* InvertedHairpinCoaster.cpp */,
 				4C93F1221F8B744400A9330D /* InvertedImpulseCoaster.cpp */,
 				4C93F1231F8B744400A9330D /* InvertedRollerCoaster.cpp */,
@@ -4297,6 +4300,7 @@
 				C688788E20289AE70084B384 /* SSE41Drawing.cpp in Sources */,
 				F76C866C1EC4E88400FA49E2 /* Object.cpp in Sources */,
 				F76C866E1EC4E88400FA49E2 /* ObjectFactory.cpp in Sources */,
+				C1E1293E245857DF00C5FC31 /* HybridCoaster.cpp in Sources */,
 				C68878A220289B200084B384 /* RealNames.cpp in Sources */,
 				C688787120289A780084B384 /* Ride.cpp in Sources */,
 				F76C86701EC4E88400FA49E2 /* ObjectManager.cpp in Sources */,
