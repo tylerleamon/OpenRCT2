@@ -12,6 +12,7 @@
 // Structures shared between both RCT1 and RCT2.
 
 #include "../common.h"
+#include "../object/Object.h"
 #include "../world/Location.hpp"
 
 #include <string>
@@ -57,11 +58,11 @@ constexpr const uint8_t RCT12_TILE_ELEMENT_SURFACE_TERRAIN_MASK = 0xE0;      // 
 constexpr uint16_t const RCT12_XY8_UNDEFINED = 0xFFFF;
 
 // Everything before this point has been researched
-#define RCT12_RESEARCHED_ITEMS_SEPARATOR 0xFFFFFFFF
+constexpr const uint32_t RCT12_RESEARCHED_ITEMS_SEPARATOR = 0xFFFFFFFF;
 // Everything before this point and after separator still requires research
-#define RCT12_RESEARCHED_ITEMS_END 0xFFFFFFFE
+constexpr const uint32_t RCT12_RESEARCHED_ITEMS_END = 0xFFFFFFFE;
 // Extra end of list entry. Leftover from RCT1.
-#define RCT12_RESEARCHED_ITEMS_END_2 0xFFFFFFFD
+constexpr const uint32_t RCT12_RESEARCHED_ITEMS_END_2 = 0xFFFFFFFD;
 
 enum class RCT12TrackDesignVersion : uint8_t
 {
@@ -276,7 +277,8 @@ struct RCT12TileElement : public RCT12TileElementBase
     uint8_t pad_04[4];
     template<typename TType, RCT12TileElementType TClass> TType* as() const
     {
-        return (RCT12TileElementType)GetType() == TClass ? (TType*)this : nullptr;
+        // TODO: CAST-IMPROVEMENT-NEEDED
+        return static_cast<RCT12TileElementType>(GetType()) == TClass ? (TType*)this : nullptr;
     }
 
     RCT12SurfaceElement* AsSurface() const
@@ -791,9 +793,8 @@ assert_struct_size(RCT12ResearchItem, 5);
 
 #pragma pack(pop)
 
-bool is_user_string_id(rct_string_id stringId);
+using RCT12ObjectEntryIndex = uint8_t;
+constexpr const RCT12ObjectEntryIndex RCT12_OBJECT_ENTRY_INDEX_NULL = 255;
 
-namespace RCT12
-{
-    std::string RemoveFormatCodes(const std::string_view& s);
-}
+ObjectEntryIndex RCTEntryIndexToOpenRCT2EntryIndex(RCT12ObjectEntryIndex index);
+RCT12ObjectEntryIndex OpenRCT2EntryIndexToRCTEntryIndex(ObjectEntryIndex index);

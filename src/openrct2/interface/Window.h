@@ -64,6 +64,15 @@ struct widget_identifier
 
 extern widget_identifier gCurrentTextBox;
 
+using WidgetFlags = uint32_t;
+namespace WIDGET_FLAGS
+{
+    const WidgetFlags TEXT_IS_STRING = 1 << 0;
+    const WidgetFlags IS_ENABLED = 1 << 1;
+    const WidgetFlags IS_PRESSED = 1 << 2;
+    const WidgetFlags IS_DISABLED = 1 << 3;
+} // namespace WIDGET_FLAGS
+
 /**
  * Widget structure
  * size: 0x10
@@ -84,6 +93,9 @@ struct rct_widget
         utf8* string;
     };
     rct_string_id tooltip; // 0x0E
+
+    // New properties
+    WidgetFlags flags{};
 };
 
 /**
@@ -211,8 +223,8 @@ struct campaign_variables
 
 struct new_ride_variables
 {
-    int16_t selected_ride_id;    // 0x480
-    int16_t highlighted_ride_id; // 0x482
+    RideSelection SelectedRide;    // 0x480
+    RideSelection HighlightedRide; // 0x482
     uint16_t pad_484;
     uint16_t pad_486;
     uint16_t selected_ride_countdown; // 488
@@ -443,6 +455,7 @@ enum
     WC_EDITOR_SCENARIO_BOTTOM_TOOLBAR = 222,
     WC_CHAT = 223,
     WC_CONSOLE = 224,
+    WC_CUSTOM = 225,
 
     WC_NULL = 255,
 };
@@ -503,8 +516,8 @@ enum
 #define WC_STAFF__WIDX_PICKUP 10
 #define WC_TILE_INSPECTOR__WIDX_BUTTON_ROTATE 14
 #define WC_TILE_INSPECTOR__WIDX_BUTTON_CORRUPT 10
-#define WC_TILE_INSPECTOR__WIDX_BUTTON_COPY 16
-#define WC_TILE_INSPECTOR__WIDX_BUTTON_PASTE 17
+#define WC_TILE_INSPECTOR__WIDX_BUTTON_COPY 17
+#define WC_TILE_INSPECTOR__WIDX_BUTTON_PASTE 16
 #define WC_TILE_INSPECTOR__WIDX_BUTTON_REMOVE 11
 #define WC_TILE_INSPECTOR__WIDX_BUTTON_MOVE_UP 12
 #define WC_TILE_INSPECTOR__WIDX_BUTTON_MOVE_DOWN 13

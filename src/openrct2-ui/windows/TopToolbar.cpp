@@ -9,6 +9,7 @@
 
 #include "../UiContext.h"
 #include "../interface/InGameConsole.h"
+#include "../scripting/CustomMenu.h"
 
 #include <algorithm>
 #include <iterator>
@@ -305,6 +306,8 @@ static rct_window_event_list window_top_toolbar_events = {
 
 static void top_toolbar_init_view_menu(rct_window* window, rct_widget* widget);
 static void top_toolbar_view_menu_dropdown(int16_t dropdownIndex);
+static void top_toolbar_init_map_menu(rct_window* window, rct_widget* widget);
+static void top_toolbar_map_menu_dropdown(int16_t dropdownIndex);
 static void top_toolbar_init_fastforward_menu(rct_window* window, rct_widget* widget);
 static void top_toolbar_fastforward_menu_dropdown(int16_t dropdownIndex);
 static void top_toolbar_init_rotate_menu(rct_window* window, rct_widget* widget);
@@ -327,6 +330,7 @@ static money32 selection_raise_land(uint8_t flags);
 static ClearAction GetClearAction();
 
 static bool _menuDropdownIncludesTwitch;
+static bool _landToolBlocked;
 static uint8_t _unkF64F0E;
 static int16_t _unkF64F0A;
 // rct2: 0x00F64F15
@@ -520,20 +524,7 @@ static void window_top_toolbar_mousedown(rct_window* w, rct_widgetindex widgetIn
             top_toolbar_init_view_menu(w, widget);
             break;
         case WIDX_MAP:
-            gDropdownItemsFormat[0] = STR_SHORTCUT_SHOW_MAP;
-            gDropdownItemsFormat[1] = STR_EXTRA_VIEWPORT;
-            numItems = 2;
-
-            if ((gScreenFlags & SCREEN_FLAGS_SCENARIO_EDITOR) && gS6Info.editor_step == EDITOR_STEP_LANDSCAPE_EDITOR)
-            {
-                gDropdownItemsFormat[2] = STR_MAPGEN_WINDOW_TITLE;
-                numItems++;
-            }
-
-            window_dropdown_show_text(
-                w->windowPos.x + widget->left, w->windowPos.y + widget->top, widget->bottom - widget->top + 1,
-                w->colours[1] | 0x80, 0, numItems);
-            gDropdownDefaultIndex = DDIDX_SHOW_MAP;
+            top_toolbar_init_map_menu(w, widget);
             break;
         case WIDX_FASTFORWARD:
             top_toolbar_init_fastforward_menu(w, widget);
@@ -585,7 +576,7 @@ static void window_top_toolbar_dropdown(rct_window* w, rct_widgetindex widgetInd
                 case DDIDX_NEW_GAME:
                 {
                     auto intent = Intent(WC_SCENARIO_SELECT);
-                    intent.putExtra(INTENT_EXTRA_CALLBACK, (void*)window_top_toolbar_scenarioselect_callback);
+                    intent.putExtra(INTENT_EXTRA_CALLBACK, reinterpret_cast<void*>(window_top_toolbar_scenarioselect_callback));
                     context_open_intent(&intent);
                     break;
                 }
@@ -650,18 +641,7 @@ static void window_top_toolbar_dropdown(rct_window* w, rct_widgetindex widgetInd
             top_toolbar_view_menu_dropdown(dropdownIndex);
             break;
         case WIDX_MAP:
-            switch (dropdownIndex)
-            {
-                case 0:
-                    context_open_window(WC_MAP);
-                    break;
-                case 1:
-                    context_open_window(WC_VIEWPORT);
-                    break;
-                case 2:
-                    context_open_window(WC_MAPGEN);
-                    break;
-            }
+            top_toolbar_map_menu_dropdown(dropdownIndex);
             break;
         case WIDX_FASTFORWARD:
             top_toolbar_fastforward_menu_dropdown(dropdownIndex);
@@ -1967,9 +1947,12 @@ static void window_top_toolbar_scenery_tool_down(int16_t x, int16_t y, rct_windo
                     break;
                 }
 
-                if (res->ErrorMessage == STR_NOT_ENOUGH_CASH_REQUIRES || res->ErrorMessage == STR_CAN_ONLY_BUILD_THIS_ON_WATER)
+                if (auto message = res->ErrorMessage.AsStringId())
                 {
-                    break;
+                    if (*message == STR_NOT_ENOUGH_CASH_REQUIRES || *message == STR_CAN_ONLY_BUILD_THIS_ON_WATER)
+                    {
+                        break;
+                    }
                 }
 
                 if (zAttemptRange != 1)
@@ -2017,9 +2000,12 @@ static void window_top_toolbar_scenery_tool_down(int16_t x, int16_t y, rct_windo
                     break;
                 }
 
-                if (res->ErrorMessage == STR_NOT_ENOUGH_CASH_REQUIRES || res->ErrorMessage == STR_CAN_ONLY_BUILD_THIS_ON_WATER)
+                if (auto message = res->ErrorMessage.AsStringId())
                 {
-                    break;
+                    if (*message == STR_NOT_ENOUGH_CASH_REQUIRES || *message == STR_CAN_ONLY_BUILD_THIS_ON_WATER)
+                    {
+                        break;
+                    }
                 }
 
                 if (zAttemptRange != 1)
@@ -2558,17 +2544,18 @@ static money32 try_place_ghost_scenery(
                 { map_tile.x, map_tile.y, gSceneryPlaceZ, rotation }, quadrant, entryIndex, primaryColour, secondaryColour);
             smallSceneryPlaceAction.SetFlags(GAME_COMMAND_FLAG_GHOST | GAME_COMMAND_FLAG_ALLOW_DURING_PAUSED);
             auto res = GameActions::Execute(&smallSceneryPlaceAction);
-            if (res->Error != GA_ERROR::OK)
+            auto sspar = dynamic_cast<SmallSceneryPlaceActionResult*>(res.get());
+            if (sspar == nullptr || res->Error != GA_ERROR::OK)
                 return MONEY32_UNDEFINED;
 
-            gSceneryPlaceRotation = (uint16_t)(parameter_3 & 0xFF);
+            gSceneryPlaceRotation = static_cast<uint16_t>(parameter_3 & 0xFF);
             gSceneryPlaceObject.SceneryType = SCENERY_TYPE_SMALL;
             gSceneryPlaceObject.EntryIndex = entryIndex;
 
-            tileElement = dynamic_cast<SmallSceneryPlaceActionResult*>(res.get())->tileElement;
+            tileElement = sspar->tileElement;
             gSceneryGhostPosition = { map_tile, tileElement->GetBaseZ() };
             gSceneryQuadrant = tileElement->AsSmallScenery()->GetSceneryQuadrant();
-            if (dynamic_cast<SmallSceneryPlaceActionResult*>(res.get())->GroundFlags & ELEMENT_IS_UNDERGROUND)
+            if (sspar->GroundFlags & ELEMENT_IS_UNDERGROUND)
             {
                 // Set underground on
                 viewport_set_visibility(4);
@@ -2645,15 +2632,16 @@ static money32 try_place_ghost_scenery(
             sceneryPlaceAction.SetFlags(
                 GAME_COMMAND_FLAG_GHOST | GAME_COMMAND_FLAG_ALLOW_DURING_PAUSED | GAME_COMMAND_FLAG_NO_SPEND);
             auto res = GameActions::Execute(&sceneryPlaceAction);
-            if (res->Error != GA_ERROR::OK)
+            auto lspar = dynamic_cast<LargeSceneryPlaceActionResult*>(res.get());
+            if (lspar == nullptr || res->Error != GA_ERROR::OK)
                 return MONEY32_UNDEFINED;
 
             gSceneryPlaceRotation = loc.direction;
 
-            tileElement = dynamic_cast<LargeSceneryPlaceActionResult*>(res.get())->tileElement;
+            tileElement = lspar->tileElement;
             gSceneryGhostPosition = { map_tile, tileElement->GetBaseZ() };
 
-            if (dynamic_cast<LargeSceneryPlaceActionResult*>(res.get())->GroundFlags & ELEMENT_IS_UNDERGROUND)
+            if (lspar->GroundFlags & ELEMENT_IS_UNDERGROUND)
             {
                 // Set underground on
                 viewport_set_visibility(4);
@@ -2825,7 +2813,7 @@ static void top_toolbar_tool_update_scenery(int16_t x, int16_t y)
 
             // If no change in ghost placement
             if ((gSceneryGhostType & SCENERY_GHOST_FLAG_1) && mapTile == gSceneryGhostPosition
-                && (int16_t)(parameter2 & 0xFF) * COORDS_Z_STEP == gSceneryGhostPosition.z)
+                && static_cast<int16_t>(parameter2 & 0xFF) * COORDS_Z_STEP == gSceneryGhostPosition.z)
             {
                 return;
             }
@@ -2881,8 +2869,8 @@ static void top_toolbar_tool_update_scenery(int16_t x, int16_t y)
             scenery = get_large_scenery_entry(selectedScenery);
             gMapSelectionTiles.clear();
 
-            for (rct_large_scenery_tile* tile = scenery->large_scenery.tiles; tile->x_offset != (int16_t)(uint16_t)0xFFFF;
-                 tile++)
+            for (rct_large_scenery_tile* tile = scenery->large_scenery.tiles;
+                 tile->x_offset != static_cast<int16_t>(static_cast<uint16_t>(0xFFFF)); tile++)
             {
                 CoordsXY tileLocation = { tile->x_offset, tile->y_offset };
                 auto rotatedTileCoords = tileLocation.Rotate((parameter1 >> 8) & 0xFF);
@@ -2940,7 +2928,7 @@ static void top_toolbar_tool_update_scenery(int16_t x, int16_t y)
 
             // If no change in ghost placement
             if ((gSceneryGhostType & SCENERY_GHOST_FLAG_4) && mapTile == gSceneryGhostPosition
-                && (int16_t)(parameter2 & 0xFF) * COORDS_Z_STEP == gSceneryGhostPosition.z
+                && static_cast<int16_t>(parameter2 & 0xFF) * COORDS_Z_STEP == gSceneryGhostPosition.z
                 && ((parameter2 >> 8) & 0xFF) == gSceneryPlaceRotation)
             {
                 return;
@@ -3008,11 +2996,19 @@ static void window_top_toolbar_tool_down(rct_window* w, rct_widgetindex widgetIn
 
                 gCurrentToolId = TOOL_UP_DOWN_ARROW;
             }
+            else
+            {
+                _landToolBlocked = true;
+            }
             break;
         case WIDX_WATER:
             if (gMapSelectFlags & MAP_SELECT_FLAG_ENABLE)
             {
                 gCurrentToolId = TOOL_UP_DOWN_ARROW;
+            }
+            else
+            {
+                _landToolBlocked = true;
             }
             break;
         case WIDX_SCENERY:
@@ -3218,11 +3214,17 @@ static void window_top_toolbar_tool_drag(rct_window* w, rct_widgetindex widgetIn
             }
             else
             {
-                window_top_toolbar_land_tool_drag(screenCoords.x, screenCoords.y);
+                if (!_landToolBlocked)
+                {
+                    window_top_toolbar_land_tool_drag(screenCoords.x, screenCoords.y);
+                }
             }
             break;
         case WIDX_WATER:
-            window_top_toolbar_water_tool_drag(screenCoords.x, screenCoords.y);
+            if (!_landToolBlocked)
+            {
+                window_top_toolbar_water_tool_drag(screenCoords.x, screenCoords.y);
+            }
             break;
         case WIDX_SCENERY:
             if (gWindowSceneryPaintEnabled & 1)
@@ -3239,6 +3241,7 @@ static void window_top_toolbar_tool_drag(rct_window* w, rct_widgetindex widgetIn
  */
 static void window_top_toolbar_tool_up(rct_window* w, rct_widgetindex widgetIndex, const ScreenCoordsXY& screenCoords)
 {
+    _landToolBlocked = false;
     switch (widgetIndex)
     {
         case WIDX_LAND:
@@ -3272,6 +3275,73 @@ static void window_top_toolbar_tool_abort(rct_window* w, rct_widgetindex widgetI
         case WIDX_CLEAR_SCENERY:
             hide_gridlines();
             break;
+    }
+}
+
+static void top_toolbar_init_map_menu(rct_window* w, rct_widget* widget)
+{
+    auto i = 0;
+    gDropdownItemsFormat[i++] = STR_SHORTCUT_SHOW_MAP;
+    gDropdownItemsFormat[i++] = STR_EXTRA_VIEWPORT;
+    if ((gScreenFlags & SCREEN_FLAGS_SCENARIO_EDITOR) && gS6Info.editor_step == EDITOR_STEP_LANDSCAPE_EDITOR)
+    {
+        gDropdownItemsFormat[i++] = STR_MAPGEN_WINDOW_TITLE;
+    }
+
+#ifdef ENABLE_SCRIPTING
+    const auto& customMenuItems = OpenRCT2::Scripting::CustomMenuItems;
+    if (!customMenuItems.empty())
+    {
+        gDropdownItemsFormat[i++] = STR_EMPTY;
+        for (const auto& item : customMenuItems)
+        {
+            gDropdownItemsFormat[i] = STR_STRING;
+            auto sz = item.Text.c_str();
+            std::memcpy(&gDropdownItemsArgs[i], &sz, sizeof(const char*));
+            i++;
+        }
+    }
+#endif
+
+    window_dropdown_show_text(
+        w->windowPos.x + widget->left, w->windowPos.y + widget->top, widget->bottom - widget->top + 1, w->colours[1] | 0x80, 0,
+        i);
+    gDropdownDefaultIndex = DDIDX_SHOW_MAP;
+}
+
+static void top_toolbar_map_menu_dropdown(int16_t dropdownIndex)
+{
+    int32_t customStartIndex = 3;
+    if ((gScreenFlags & SCREEN_FLAGS_SCENARIO_EDITOR) && gS6Info.editor_step == EDITOR_STEP_LANDSCAPE_EDITOR)
+    {
+        customStartIndex++;
+    }
+
+    if (dropdownIndex < customStartIndex)
+    {
+        switch (dropdownIndex)
+        {
+            case 0:
+                context_open_window(WC_MAP);
+                break;
+            case 1:
+                context_open_window(WC_VIEWPORT);
+                break;
+            case 2:
+                context_open_window(WC_MAPGEN);
+                break;
+        }
+    }
+    else
+    {
+#ifdef ENABLE_SCRIPTING
+        const auto& customMenuItems = OpenRCT2::Scripting::CustomMenuItems;
+        auto customIndex = static_cast<size_t>(dropdownIndex - customStartIndex);
+        if (customMenuItems.size() > customIndex)
+        {
+            customMenuItems[customIndex].Invoke();
+        }
+#endif
     }
 }
 
@@ -3711,6 +3781,7 @@ static void toggle_land_window(rct_window* topToolbar, rct_widgetindex widgetInd
     }
     else
     {
+        _landToolBlocked = false;
         show_gridlines();
         tool_set(topToolbar, widgetIndex, TOOL_DIG_DOWN);
         input_set_flag(INPUT_FLAG_6, true);
@@ -3751,6 +3822,7 @@ static void toggle_water_window(rct_window* topToolbar, rct_widgetindex widgetIn
     }
     else
     {
+        _landToolBlocked = false;
         show_gridlines();
         tool_set(topToolbar, widgetIndex, TOOL_WATER_DOWN);
         input_set_flag(INPUT_FLAG_6, true);

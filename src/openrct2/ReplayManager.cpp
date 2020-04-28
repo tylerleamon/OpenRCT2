@@ -11,6 +11,7 @@
 
 #include "Context.h"
 #include "Game.h"
+#include "GameStateSnapshots.h"
 #include "OpenRCT2.h"
 #include "ParkImporter.h"
 #include "PlatformEnvironment.h"
@@ -80,7 +81,6 @@ namespace OpenRCT2
         uint16_t version;
         std::string networkId;
         MemoryStream parkData;
-        MemoryStream spriteSpatialData;
         MemoryStream parkParams;
         MemoryStream cheatData;
         std::string name;      // Name of play
@@ -91,11 +91,12 @@ namespace OpenRCT2
         std::multiset<ReplayCommand> commands;
         std::vector<std::pair<uint32_t, rct_sprite_checksum>> checksums;
         uint32_t checksumIndex;
+        MemoryStream gameStateSnapshots;
     };
 
     class ReplayManager final : public IReplayManager
     {
-        static constexpr uint16_t ReplayVersion = 3;
+        static constexpr uint16_t ReplayVersion = 4;
         static constexpr uint32_t ReplayMagic = 0x5243524F; // ORCR.
         static constexpr int ReplayCompressionLevel = 9;
         static constexpr int NormalRecordingChecksumTicks = 1;
@@ -204,6 +205,17 @@ namespace OpenRCT2
             }
         }
 
+        void TakeGameStateSnapshot(MemoryStream& snapshotStream)
+        {
+            IGameStateSnapshots* snapshots = GetContext()->GetGameStateSnapshots();
+
+            auto& snapshot = snapshots->CreateSnapshot();
+            snapshots->Capture(snapshot);
+            snapshots->LinkSnapshot(snapshot, gCurrentTicks, scenario_rand_state().s0);
+            DataSerialiser snapShotDs(true, snapshotStream);
+            snapshots->SerialiseSnapshot(snapshot, snapShotDs);
+        }
+
         virtual bool StartRecording(
             const std::string& name, uint32_t maxTicks /*= k_MaxReplayTicks*/, RecordType rt /*= RecordType::NORMAL*/) override
         {
@@ -237,7 +249,6 @@ namespace OpenRCT2
             s6exporter->Export();
             s6exporter->SaveGame(&replayData->parkData);
 
-            replayData->spriteSpatialData.Write(gSpriteSpatialIndex, sizeof(gSpriteSpatialIndex));
             replayData->timeRecorded = std::chrono::seconds(std::time(nullptr)).count();
 
             DataSerialiser parkParamsDs(true, replayData->parkParams);
@@ -245,6 +256,8 @@ namespace OpenRCT2
 
             DataSerialiser cheatDataDs(true, replayData->cheatData);
             SerialiseCheats(cheatDataDs);
+
+            TakeGameStateSnapshot(replayData->gameStateSnapshots);
 
             if (_mode != ReplayMode::NORMALISATION)
                 _mode = ReplayMode::RECORDING;
@@ -275,6 +288,8 @@ namespace OpenRCT2
                 AddChecksum(gCurrentTicks, std::move(checksum));
             }
 
+            TakeGameStateSnapshot(_currentRecording->gameStateSnapshots);
+
             // Serialise Body.
             DataSerialiser recSerialiser(true);
             Serialise(recSerialiser, *_currentRecording);
@@ -289,7 +304,7 @@ namespace OpenRCT2
 
             auto compressBuf = std::make_unique<unsigned char[]>(compressLength);
             compress2(
-                compressBuf.get(), &compressLength, (unsigned char*)stream.GetData(), stream.GetLength(),
+                compressBuf.get(), &compressLength, static_cast<const unsigned char*>(stream.GetData()), stream.GetLength(),
                 ReplayCompressionLevel);
             file.data.Write(compressBuf.get(), compressLength);
 
@@ -352,10 +367,49 @@ namespace OpenRCT2
                 info.Ticks = gCurrentTicks - data->tickStart;
             else if (_mode == ReplayMode::PLAYING)
                 info.Ticks = data->tickEnd - data->tickStart;
-            info.NumCommands = (uint32_t)data->commands.size();
-            info.NumChecksums = (uint32_t)data->checksums.size();
+            info.NumCommands = static_cast<uint32_t>(data->commands.size());
+            info.NumChecksums = static_cast<uint32_t>(data->checksums.size());
 
             return true;
+        }
+
+        void LoadAndCompareSnapshot(MemoryStream& snapshotStream)
+        {
+            DataSerialiser ds(false, snapshotStream);
+
+            IGameStateSnapshots* snapshots = GetContext()->GetGameStateSnapshots();
+
+            GameStateSnapshot_t& replaySnapshot = snapshots->CreateSnapshot();
+            snapshots->SerialiseSnapshot(replaySnapshot, ds);
+
+            auto& localSnapshot = snapshots->CreateSnapshot();
+            snapshots->Capture(localSnapshot);
+            snapshots->LinkSnapshot(localSnapshot, gCurrentTicks, scenario_rand_state().s0);
+            try
+            {
+                GameStateCompareData_t cmpData = snapshots->Compare(replaySnapshot, localSnapshot);
+
+                // Find out if there are any differences between the two states
+                auto res = std::find_if(
+                    cmpData.spriteChanges.begin(), cmpData.spriteChanges.end(),
+                    [](const GameStateSpriteChange_t& diff) { return diff.changeType != GameStateSpriteChange_t::EQUAL; });
+
+                // If there are difference write a log to the desyncs folder
+                if (res != cmpData.spriteChanges.end())
+                {
+                    std::string outputPath = GetContext()->GetPlatformEnvironment()->GetDirectoryPath(
+                        DIRBASE::USER, DIRID::LOG_DESYNCS);
+                    char uniqueFileName[128] = {};
+                    snprintf(uniqueFileName, sizeof(uniqueFileName), "replay_desync_%u.txt", gCurrentTicks);
+
+                    std::string outputFile = Path::Combine(outputPath, uniqueFileName);
+                    snapshots->LogCompareDataToFile(outputFile, cmpData);
+                }
+            }
+            catch (const std::runtime_error& err)
+            {
+                log_warning("Snapshot data failed to be read. Snapshot not compared. %s", err.what());
+            }
         }
 
         virtual bool StartPlayback(const std::string& file) override
@@ -378,6 +432,8 @@ namespace OpenRCT2
             }
 
             gCurrentTicks = replayData->tickStart;
+
+            LoadAndCompareSnapshot(replayData->gameStateSnapshots);
 
             _currentReplay = std::move(replayData);
             _currentReplay->checksumIndex = 0;
@@ -405,6 +461,8 @@ namespace OpenRCT2
         {
             if (_mode != ReplayMode::PLAYING && _mode != ReplayMode::NORMALISATION)
                 return false;
+
+            LoadAndCompareSnapshot(_currentReplay->gameStateSnapshots);
 
             // During normal playback we pause the game if stopped.
             if (_mode == ReplayMode::PLAYING)
@@ -474,12 +532,6 @@ namespace OpenRCT2
 
                 sprite_position_tween_reset();
 
-                Guard::Assert(sizeof(gSpriteSpatialIndex) >= data.spriteSpatialData.GetLength());
-
-                // In case the sprite limit will be increased we keep the unused fields cleared.
-                std::fill_n(gSpriteSpatialIndex, std::size(gSpriteSpatialIndex), SPRITE_INDEX_NULL);
-                std::memcpy(gSpriteSpatialIndex, data.spriteSpatialData.GetData(), data.spriteSpatialData.GetLength());
-
                 // Load all map global variables.
                 DataSerialiser parkParamsDs(false, data.parkParams);
                 SerialiseParkParameters(parkParamsDs);
@@ -541,7 +593,8 @@ namespace OpenRCT2
                 auto buff = std::make_unique<unsigned char[]>(recFile.uncompressedSize);
                 unsigned long outSize = recFile.uncompressedSize;
                 uncompress(
-                    (unsigned char*)buff.get(), &outSize, (unsigned char*)recFile.data.GetData(), recFile.data.GetLength());
+                    static_cast<unsigned char*>(buff.get()), &outSize,
+                    static_cast<const unsigned char*>(recFile.data.GetData()), recFile.data.GetLength());
                 if (outSize != recFile.uncompressedSize)
                 {
                     return false;
@@ -594,7 +647,7 @@ namespace OpenRCT2
             data.parkData.SetPosition(0);
             data.parkParams.SetPosition(0);
             data.cheatData.SetPosition(0);
-            data.spriteSpatialData.SetPosition(0);
+            data.gameStateSnapshots.SetPosition(0);
 
             return true;
         }
@@ -689,11 +742,10 @@ namespace OpenRCT2
             serialiser << data.parkData;
             serialiser << data.parkParams;
             serialiser << data.cheatData;
-            serialiser << data.spriteSpatialData;
             serialiser << data.tickStart;
             serialiser << data.tickEnd;
 
-            uint32_t countCommands = (uint32_t)data.commands.size();
+            uint32_t countCommands = static_cast<uint32_t>(data.commands.size());
             serialiser << countCommands;
 
             if (serialiser.IsSaving())
@@ -714,7 +766,7 @@ namespace OpenRCT2
                 }
             }
 
-            uint32_t countChecksums = (uint32_t)data.checksums.size();
+            uint32_t countChecksums = static_cast<uint32_t>(data.checksums.size());
             serialiser << countChecksums;
 
             if (serialiser.IsLoading())
@@ -728,15 +780,13 @@ namespace OpenRCT2
                 serialiser << data.checksums[i].second.raw;
             }
 
+            serialiser << data.gameStateSnapshots;
             return true;
         }
 
 #ifndef DISABLE_NETWORK
         void CheckState()
         {
-            if (_nextChecksumTick != gCurrentTicks)
-                return;
-
             uint32_t checksumIndex = _currentReplay->checksumIndex;
 
             if (checksumIndex >= _currentReplay->checksums.size())

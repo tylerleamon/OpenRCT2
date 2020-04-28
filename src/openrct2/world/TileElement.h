@@ -103,7 +103,8 @@ struct TileElement : public TileElementBase
 
     template<typename TType, TileElementType TClass> TType* as() const
     {
-        return (TileElementType)GetType() == TClass ? (TType*)this : nullptr;
+        // TODO: CAST-IMPROVEMENT-NEEDED
+        return static_cast<TileElementType>(GetType()) == TClass ? (TType*)this : nullptr;
     }
 
 public:
@@ -404,7 +405,7 @@ assert_struct_size(SmallSceneryElement, 16);
 struct LargeSceneryElement : TileElementBase
 {
 private:
-    uint16_t EntryIndex;
+    ObjectEntryIndex EntryIndex;
     ::BannerIndex BannerIndex;
     uint8_t SequenceIndex;
     uint8_t Colour[3];
@@ -415,8 +416,8 @@ private:
 #pragma clang diagnostic pop
 
 public:
-    uint16_t GetEntryIndex() const;
-    void SetEntryIndex(uint16_t newIndex);
+    ObjectEntryIndex GetEntryIndex() const;
+    void SetEntryIndex(ObjectEntryIndex newIndex);
     rct_scenery_entry* GetEntry() const;
 
     uint8_t GetSequenceIndex() const;
@@ -480,6 +481,7 @@ public:
     void SetRawRCT1Data(uint32_t rawData);
     int32_t GetRCT1WallType(int32_t edge) const;
     colour_t GetRCT1WallColour() const;
+    uint8_t GetRCT1Slope() const;
 };
 assert_struct_size(WallElement, 16);
 

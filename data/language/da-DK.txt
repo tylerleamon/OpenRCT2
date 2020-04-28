@@ -1982,7 +1982,7 @@ STR_2778    :»{MOVE_X}{10}{STRING}
 STR_2779    :Visning #{COMMA16}
 STR_2780    :Ekstra visning
 # End of new strings
-STR_2781    :{STRINGID}:{MOVE_X}{255}{STRINGID}
+STR_2781    :{STRINGID}:
 STR_2782    :SHIFT + 
 STR_2783    :CTRL + 
 STR_2784    :Skift tastatur genvej
@@ -3704,6 +3704,10 @@ STR_6360    :{SMALLFONT}{BLACK}{COMMA32}
 STR_6361    :Aktiver lyseffekter på forlystelser (eksperimentel)
 STR_6362    :{SMALLFONT}{BLACK}Hvis aktiv, vognene for spor-forlystelser vil lyse op om natten.
 STR_6363    :Kopierede tekst til udklipsholder
+STR_6364    :{RED}{COMMA16} person døde i forlystelsen {STRINGID}
+STR_6365    :Forlystelse tilskadekommende
+STR_6366    :Fastlåste eller blokerede køretøjer
+STR_6367    :{WINDOW_COLOUR_2}Animations billede:
 
 #############
 # Scenarios #

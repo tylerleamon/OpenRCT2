@@ -156,8 +156,10 @@ rct_window* window_sign_open(rct_windownumber number)
     window_init_scroll_widgets(w);
 
     auto banner = GetBanner(w->number);
-    auto signViewPos = banner->position.ToCoordsXY().ToTileCentre();
+    if (banner == nullptr)
+        return nullptr;
 
+    auto signViewPos = banner->position.ToCoordsXY().ToTileCentre();
     TileElement* tile_element = map_get_first_element_at(signViewPos);
     if (tile_element == nullptr)
         return nullptr;
@@ -253,10 +255,10 @@ static void window_sign_mousedown(rct_window* w, rct_widgetindex widgetIndex, rc
     switch (widgetIndex)
     {
         case WIDX_MAIN_COLOUR:
-            window_dropdown_show_colour(w, widget, TRANSLUCENT(w->colours[1]), (uint8_t)w->list_information_type);
+            window_dropdown_show_colour(w, widget, TRANSLUCENT(w->colours[1]), static_cast<uint8_t>(w->list_information_type));
             break;
         case WIDX_TEXT_COLOUR:
-            window_dropdown_show_colour(w, widget, TRANSLUCENT(w->colours[1]), (uint8_t)w->var_492);
+            window_dropdown_show_colour(w, widget, TRANSLUCENT(w->colours[1]), static_cast<uint8_t>(w->var_492));
             break;
     }
 }
