@@ -7419,6 +7419,7 @@ const char* ride_type_get_enum_name(int32_t rideType)
         nameof(RIDE_TYPE_MINE_RIDE),
         nameof(RIDE_TYPE_59),
         nameof(RIDE_TYPE_LIM_LAUNCHED_ROLLER_COASTER),
+        nameof(RIDE_TYPE_HYBRID_COASTER)
     };
 
     return RideTypeEnumNames[rideType];

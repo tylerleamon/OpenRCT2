@@ -342,6 +342,7 @@ const std::vector<const char*> RideGroupManager::GetPreferredRideEntryOrder(cons
         { "PMT1    " },                                                             // RIDE_TYPE_MINE_RIDE
         { },                                                                        // RIDE_TYPE_59
         { "PREMT1  " },                                                             // RIDE_TYPE_LIM_LAUNCHED_ROLLER_COASTER
+        { },                                                                        // RIDE_TYPE_HYBRID_COASTER
     };
     // clang-format on
     return preferredRideEntryOrder[rideType];

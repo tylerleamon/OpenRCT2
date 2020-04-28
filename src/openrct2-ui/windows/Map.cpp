@@ -1535,7 +1535,7 @@ static constexpr const uint8_t RideColourKey[] = {
     COLOUR_KEY_RIDE,         // RIDE_TYPE_MINE_RIDE
     COLOUR_KEY_RIDE,         // RIDE_TYPE_59
     COLOUR_KEY_RIDE,         // RIDE_TYPE_LIM_LAUNCHED_ROLLER_COASTER
-    COLOUR_KEY_RIDE,         //
+    COLOUR_KEY_RIDE,         // RIDE_TYPE_HYBRID_COASTER
     COLOUR_KEY_RIDE,         //
     COLOUR_KEY_RIDE,         //
 };
